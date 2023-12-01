@@ -1,0 +1,27 @@
+# permissions for end users to view pvmonitors.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: pvmonitor-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: pvmonitor
+    app.kubernetes.io/part-of: pvmonitor
+    app.kubernetes.io/managed-by: kustomize
+  name: pvmonitor-viewer-role
+rules:
+- apiGroups:
+  - xinyu.com
+  resources:
+  - pvmonitors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - xinyu.com
+  resources:
+  - pvmonitors/status
+  verbs:
+  - get
