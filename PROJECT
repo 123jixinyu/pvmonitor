@@ -10,7 +10,7 @@ repo: pvmonitor
 resources:
 - api:
     crdVersion: v1
-    namespaced: true
+    namespaced: false
   controller: true
   domain: xinyu.com
   kind: PvMonitor

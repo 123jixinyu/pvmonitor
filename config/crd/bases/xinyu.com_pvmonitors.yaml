@@ -12,7 +12,7 @@ spec:
     listKind: PvMonitorList
     plural: pvmonitors
     singular: pvmonitor
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1
     schema:
@@ -34,8 +34,6 @@ spec:
           spec:
             description: PvMonitorSpec defines the desired state of PvMonitor
             properties:
-              capacity:
-                type: string
               email:
                 properties:
                   cc:
@@ -72,11 +70,16 @@ spec:
                   to remove/update
                 type: string
             required:
-            - capacity
             - frequency
             type: object
           status:
             description: PvMonitorStatus defines the observed state of PvMonitor
+            properties:
+              date:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: string
             type: object
         type: object
     served: true

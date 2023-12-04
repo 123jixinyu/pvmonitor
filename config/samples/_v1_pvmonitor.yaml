@@ -8,19 +8,15 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: pvmonitor
   name: pvmonitor-sample
-  namespace: test
 spec:
   regex: ".*"
-  frequency: 300
-  capacity: 80%
   email:
-    host: "smtp.qiye.aliyun.com"
-    port: 465
-    user: "bigdata.service@sunmi.com"
-    password: "Sunmi@2021bigdata"
-    subject: "容量告警"
+    host: "smtp server"
+    port: "smtp server port"
+    user: "your email"
+    password: "your email password"
+    subject: "容量报告"
     to:
-      - jixinyu@sunmi.com
-      - 848280118@qq.com
+      - your email
     cc:
-      - 848280118@qq.com
+      - your email

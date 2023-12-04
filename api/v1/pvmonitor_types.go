@@ -31,7 +31,6 @@ type PvMonitorSpec struct {
 	// Foo is an example field of PvMonitor. Edit pvmonitor_types.go to remove/update
 	Regex     string         `json:"regex,omitempty"`
 	Frequency int            `json:"frequency"`
-	Capacity  string         `json:"capacity"`
 	Email     PvMonitorEmail `json:"email,omitempty"`
 }
 
@@ -49,10 +48,12 @@ type PvMonitorEmail struct {
 type PvMonitorStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Date string `json:"date,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=pvmonitors,scope=Cluster
 
 // PvMonitor is the Schema for the pvmonitors API
 type PvMonitor struct {

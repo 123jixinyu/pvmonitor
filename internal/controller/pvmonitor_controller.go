@@ -17,20 +17,29 @@ limitations under the License.
 package controller
 
 import (
+	"bytes"
 	"context"
-
+	"crypto/tls"
+	"gopkg.in/gomail.v2"
+	"html/template"
+	coreV1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	pvmonitorV1 "pvmonitor/api/v1"
+	"regexp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	xinyucomv1 "pvmonitor/api/v1"
+	"time"
 )
 
 // PvMonitorReconciler reconciles a PvMonitor object
 type PvMonitorReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme        *runtime.Scheme
+	DynamicClient *dynamic.DynamicClient
 }
 
 // +kubebuilder:rbac:groups=xinyu.com,resources=pvmonitors,verbs=get;list;watch;create;update;patch;delete
@@ -47,14 +56,131 @@ type PvMonitorReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
 func (r *PvMonitorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	logger := log.FromContext(ctx)
+
+	logger.Info("reconcile start", "namespace", req.Namespace, "resource name", req.Name)
+
+	pvMonitor := pvmonitorV1.PvMonitor{}
+
+	if err := r.Client.Get(ctx, req.NamespacedName, &pvMonitor); err != nil {
+		logger.Error(err, "get resource err")
+		return ctrl.Result{}, err
+	}
+
+	if pvMonitor.Status.Date == time.Now().Format("20060102") {
+		logger.Info("has send")
+		return ctrl.Result{}, nil
+	}
+
+	unStructList, err := r.DynamicClient.Resource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}).
+		List(ctx, v1.ListOptions{})
+	if err != nil {
+		logger.Error(err, "get pv list err")
+		return ctrl.Result{}, err
+	}
+
+	pvs := make([]coreV1.PersistentVolume, 0)
+
+	for _, v := range unStructList.Items {
+
+		pv := new(coreV1.PersistentVolume)
+
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(v.Object, pv); err != nil {
+			logger.Error(err, "convert unstructed to persistent volume err")
+			return ctrl.Result{}, err
+		}
+		if pvMonitor.Spec.Regex == "" {
+			pvs = append(pvs, *pv)
+			continue
+		}
+		matched, err := regexp.MatchString(pvMonitor.Spec.Regex, pv.Name)
+		if err != nil {
+			logger.Error(err, "regex match err")
+			return ctrl.Result{}, err
+		}
+		if matched {
+			pvs = append(pvs, *pv)
+			continue
+		}
+	}
+	tp, err := r.Template(pvs)
+	if err != nil {
+		logger.Error(err, "get template err")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.SendEmail(pvMonitor, tp); err != nil {
+		logger.Error(err, "send email err")
+		return ctrl.Result{}, err
+	}
+
+	pvMonitor.Status.Date = time.Now().Format("20060102")
+	if err := r.Status().Update(ctx, &pvMonitor); err != nil {
+		logger.Error(err, "update status error")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *PvMonitorReconciler) SendEmail(pvMonitor pvmonitorV1.PvMonitor, body string) error {
+
+	m := gomail.NewMessage()
+	m.SetAddressHeader("From", pvMonitor.Spec.Email.User, pvMonitor.Spec.Email.Subject)
+	m.SetHeader("To", pvMonitor.Spec.Email.To...)
+	if len(pvMonitor.Spec.Email.CC) > 0 {
+		m.SetHeader("Cc", pvMonitor.Spec.Email.CC...)
+	}
+	m.SetHeader("Subject", pvMonitor.Spec.Email.Subject)
+
+	m.SetBody("text/html", body)
+
+	d := gomail.NewDialer(pvMonitor.Spec.Email.Host, pvMonitor.Spec.Email.Port, pvMonitor.Spec.Email.User, pvMonitor.Spec.Email.Password)
+	d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+
+	if err := d.DialAndSend(m); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *PvMonitorReconciler) Template(pvs []coreV1.PersistentVolume) (string, error) {
+
+	td := make([]TemplateData, 0)
+
+	for _, v := range pvs {
+		td = append(td, TemplateData{
+			Name:    v.Name,
+			Storage: v.Spec.Capacity.Storage().String(),
+			Status:  string(v.Status.Phase),
+		})
+	}
+
+	t, err := template.New("email").Parse(pvmonitorV1.Html)
+	if err != nil {
+		return "", err
+	}
+	writer := bytes.NewBuffer([]byte(""))
+
+	if err := t.Execute(writer, struct {
+		Monitors []TemplateData
+	}{
+		Monitors: td,
+	}); err != nil {
+		return "", err
+	}
+	return writer.String(), nil
+}
+
+type TemplateData struct {
+	Name    string `json:"name"`
+	Storage string `json:"storage"`
+	Status  string `json:"status"`
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PvMonitorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&xinyucomv1.PvMonitor{}).
+		For(&pvmonitorV1.PvMonitor{}).
 		Complete(r)
 }
