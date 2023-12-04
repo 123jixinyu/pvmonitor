@@ -7,7 +7,7 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pv
+  - persistentvolumes
   verbs:
   - get
   - list

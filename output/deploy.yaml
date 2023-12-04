@@ -75,14 +75,10 @@ spec:
                 - to
                 - user
                 type: object
-              frequency:
-                type: integer
               regex:
                 description: Foo is an example field of PvMonitor. Edit pvmonitor_types.go
                   to remove/update
                 type: string
-            required:
-            - frequency
             type: object
           status:
             description: PvMonitorStatus defines the observed state of PvMonitor
@@ -165,7 +161,7 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pv
+  - persistentvolumes
   verbs:
   - get
   - list

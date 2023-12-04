@@ -29,9 +29,8 @@ type PvMonitorSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of PvMonitor. Edit pvmonitor_types.go to remove/update
-	Regex     string         `json:"regex,omitempty"`
-	Frequency int            `json:"frequency"`
-	Email     PvMonitorEmail `json:"email,omitempty"`
+	Regex string         `json:"regex,omitempty"`
+	Email PvMonitorEmail `json:"email,omitempty"`
 }
 
 type PvMonitorEmail struct {
